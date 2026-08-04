@@ -1,0 +1,34 @@
+# Xcode
+.DS_Store
+build/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.pbxuser
+!default.mode1v3
+!default.mode2v3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# CocoaPods (not used, but ignored just in case)
+Pods/
+
+# Firebase secrets — NEVER commit this file
+GoogleService-Info.plist
+
+# Cloudinary / API keys if you ever create a local secrets file
+Secrets.swift
+*.env
+
+# macOS
+.DS_Store

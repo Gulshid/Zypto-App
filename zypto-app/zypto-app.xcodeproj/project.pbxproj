@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		04AF5F7430222917004EBD7A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 04AF5F7330222917004EBD7A /* FirebaseAuth */; };
+		04AF5F7630222917004EBD7A /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 04AF5F7530222917004EBD7A /* FirebaseDatabase */; };
+		04AF5F7830222917004EBD7A /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 04AF5F7730222917004EBD7A /* FirebaseFirestore */; };
+		04AF5F7B302229EB004EBD7A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 04AF5F7A302229EB004EBD7A /* GoogleSignIn */; };
+		04AF5F7D302229EB004EBD7A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 04AF5F7C302229EB004EBD7A /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		04427ED7302224DB00C6294E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +60,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04AF5F7D302229EB004EBD7A /* GoogleSignInSwift in Frameworks */,
+				04AF5F7630222917004EBD7A /* FirebaseDatabase in Frameworks */,
+				04AF5F7B302229EB004EBD7A /* GoogleSignIn in Frameworks */,
+				04AF5F7430222917004EBD7A /* FirebaseAuth in Frameworks */,
+				04AF5F7830222917004EBD7A /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +125,11 @@
 			);
 			name = "zypto-app";
 			packageProductDependencies = (
+				04AF5F7330222917004EBD7A /* FirebaseAuth */,
+				04AF5F7530222917004EBD7A /* FirebaseDatabase */,
+				04AF5F7730222917004EBD7A /* FirebaseFirestore */,
+				04AF5F7A302229EB004EBD7A /* GoogleSignIn */,
+				04AF5F7C302229EB004EBD7A /* GoogleSignInSwift */,
 			);
 			productName = "zypto-app";
 			productReference = 04427EC9302224D900C6294E /* zypto-app.app */;
@@ -196,6 +214,10 @@
 			);
 			mainGroup = 04427EC0302224D900C6294E;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				04AF5F7230222917004EBD7A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				04AF5F79302229EB004EBD7A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 04427ECA302224D900C6294E /* Products */;
 			projectDirPath = "";
@@ -415,6 +437,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.gulshid.zypto-app";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "zypto-app/App/zypto-app-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -445,6 +468,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.gulshid.zypto-app";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "zypto-app/App/zypto-app-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -562,6 +586,53 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		04AF5F7230222917004EBD7A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.17.0;
+			};
+		};
+		04AF5F79302229EB004EBD7A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		04AF5F7330222917004EBD7A /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 04AF5F7230222917004EBD7A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		04AF5F7530222917004EBD7A /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 04AF5F7230222917004EBD7A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		04AF5F7730222917004EBD7A /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 04AF5F7230222917004EBD7A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		04AF5F7A302229EB004EBD7A /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 04AF5F79302229EB004EBD7A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		04AF5F7C302229EB004EBD7A /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 04AF5F79302229EB004EBD7A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 04427EC1302224D900C6294E /* Project object */;
 }
