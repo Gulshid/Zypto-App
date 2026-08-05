@@ -9,10 +9,10 @@
 //
 //  Location in project: App/AppEnvironment.swift
 //
-//  UPDATED IN PHASE 2: authService and firestoreService are now backed
-//  by real Firebase implementations (AuthServiceFirebase, FirestoreServiceLive
-//  — see Core/Services/), and userRepository is wired up. cloudinaryService
-//  stays a stub until Phase 4.
+//  UPDATED IN PHASE 4: cloudinaryService is now backed by a real
+//  implementation (CloudinaryServiceLive, see Core/Services/) instead
+//  of the Phase 2 stub. Wired up restaurantRepository, menuRepository,
+//  and favoritesRepository for the Phase 4 browsing feature.
 //
 
 import Foundation
@@ -26,12 +26,13 @@ final class AppEnvironment: ObservableObject {
 
     // MARK: - Repositories (business-logic-facing data access)
     let userRepository: UserRepositoryProtocol
+    let restaurantRepository: RestaurantRepositoryProtocol
+    let menuRepository: MenuRepositoryProtocol
+    let favoritesRepository: FavoritesRepositoryProtocol
 
     // Uncomment and wire these up as each repository is implemented
     // in its corresponding phase:
     //
-    // let restaurantRepository: RestaurantRepository
-    // let menuRepository: MenuRepository
     // let cartRepository: CartRepository
     // let orderRepository: OrderRepository
     // let reviewRepository: ReviewRepository
@@ -39,12 +40,15 @@ final class AppEnvironment: ObservableObject {
     init(
         authService: AuthServiceProtocol = AuthServiceFirebase(),
         firestoreService: FirestoreServiceProtocol = FirestoreServiceLive(),
-        cloudinaryService: CloudinaryServiceProtocol = CloudinaryServiceStub()
+        cloudinaryService: CloudinaryServiceProtocol = CloudinaryServiceLive()
     ) {
         self.authService = authService
         self.firestoreService = firestoreService
         self.cloudinaryService = cloudinaryService
         self.userRepository = UserRepository(firestoreService: firestoreService)
+        self.restaurantRepository = RestaurantRepository(firestoreService: firestoreService)
+        self.menuRepository = MenuRepository(firestoreService: firestoreService)
+        self.favoritesRepository = FavoritesRepository(firestoreService: firestoreService)
     }
 }
 
@@ -52,8 +56,5 @@ final class AppEnvironment: ObservableObject {
 
 // AuthServiceProtocol now lives in Core/Services/AuthService.swift
 // FirestoreServiceProtocol now lives in Core/Services/FirestoreService.swift
-
-/// Cloudinary image upload comes online in Phase 4; this stub keeps
-/// AppEnvironment compiling until then.
-protocol CloudinaryServiceProtocol {}
-struct CloudinaryServiceStub: CloudinaryServiceProtocol {}
+// CloudinaryServiceProtocol now lives in Core/Services/CloudinaryService.swift
+// (upload support arrives in Phase 7 — Phase 4 only needs read-side URL building)

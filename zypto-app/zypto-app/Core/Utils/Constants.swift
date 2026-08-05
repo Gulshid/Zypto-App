@@ -12,6 +12,10 @@
 //  collection — added Collections.menuItemsPath(restaurantId:) so
 //  repositories never hand-build that string themselves.
 //
+//  UPDATED IN PHASE 4: added Collections.favorites — a new top-level
+//  collection (one doc per user) backing the favorites/saved
+//  restaurants feature. See Core/Models/Favorites.swift.
+//
 
 import Foundation
 
@@ -38,6 +42,7 @@ enum Constants {
         static let carts = "carts"
         static let orders = "orders"
         static let reviews = "reviews"
+        static let favorites = "favorites"
 
         /// Path to a given restaurant's menuItems subcollection, e.g.
         /// "restaurants/abc123/menuItems". Use this instead of concatenating

@@ -8,9 +8,10 @@
 //
 //  Location in project: App/FoodDeliveryApp.swift
 //
-//  UPDATED IN PHASE 2: RootView now routes between the auth flow,
-//  role selection, and a temporary home screen based on AuthViewModel's
-//  published session state, instead of always showing a static placeholder.
+//  UPDATED IN PHASE 4: RootView now routes signed-in Customers to the
+//  real home feed (HomeView, restaurant browsing). Restaurant Owners
+//  still land on HomePlaceholderView until their dashboard ships in
+//  Phase 7.
 //
 
 import SwiftUI
@@ -80,12 +81,12 @@ struct FoodDeliveryApp: App {
     }
 }
 
-/// Routes between the auth flow, role selection, and a temporary home
-/// screen based on AuthViewModel's published session state. The real
-/// Customer/Restaurant destinations replace HomePlaceholderView in
-/// Phase 4 and Phase 7.
+/// Routes between the auth flow, role selection, and each role's home
+/// screen based on AuthViewModel's published session state. The
+/// Restaurant Owner dashboard replaces HomePlaceholderView in Phase 7.
 struct RootView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var appEnvironment: AppEnvironment
 
     var body: some View {
         Group {
@@ -97,7 +98,12 @@ struct RootView: View {
             case .needsRoleSelection(let uid, let email, let fullName):
                 RoleSelectionView(uid: uid, email: email, fullName: fullName)
             case .signedIn(let user):
-                HomePlaceholderView(user: user)
+                if user.isCustomer {
+                    HomeView(currentUser: user, appEnvironment: appEnvironment)
+                } else {
+                    // Restaurant Owner dashboard arrives in Phase 7
+                    HomePlaceholderView(user: user)
+                }
             }
         }
     }

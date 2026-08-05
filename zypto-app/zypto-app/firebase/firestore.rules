@@ -1,5 +1,5 @@
 // firestore.rules
-// New in Phase 3.
+// UPDATED IN PHASE 4: added the favorites/{uid} collection rule.
 //
 // Deploy with: firebase deploy --only firestore:rules
 // (or paste into Firebase Console → Firestore Database → Rules)
@@ -97,6 +97,13 @@ service cloud.firestore {
       allow create: if isSignedIn()
                     && request.resource.data.customerId == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    // ---------- favorites/{uid} ----------
+    // New in Phase 4. One doc per user (doc ID == uid), same shape as
+    // carts — only that user can ever read or write their own favorites.
+    match /favorites/{uid} {
+      allow read, write: if isOwner(uid);
     }
   }
 }
