@@ -53,6 +53,16 @@ struct FoodDeliveryApp: App {
         // so this has to come first. See note on AppDelegate above.
         FirebaseApp.configure()
 
+        // Google Sign-In needs a client ID. Since this project uses an
+        // auto-generated Info.plist (no static file to add a GIDClientID
+        // key to), we configure it in code instead, reusing the client ID
+        // Firebase already loaded from GoogleService-Info.plist. Without
+        // this, Google Sign-In crashes with "No active configuration.
+        // Make sure GIDClientID is set in Info.plist."
+        if let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        }
+
         let environment = AppEnvironment()
         _appEnvironment = StateObject(wrappedValue: environment)
         _authViewModel = StateObject(wrappedValue: AuthViewModel(
