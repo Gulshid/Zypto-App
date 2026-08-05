@@ -1,0 +1,8 @@
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "zypto-app/zypto-app/firebase/firestore.rules",
+    "indexes": "zypto-app/zypto-app/firebase/firestore.indexes.json"
+  }
+}

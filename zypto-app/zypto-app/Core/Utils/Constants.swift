@@ -7,6 +7,11 @@
 //
 //  Location in project: Core/Utils/Constants.swift
 //
+//  UPDATED IN PHASE 3: menuItems is a subcollection under each restaurant
+//  document (restaurants/{restaurantId}/menuItems), not a top-level
+//  collection — added Collections.menuItemsPath(restaurantId:) so
+//  repositories never hand-build that string themselves.
+//
 
 import Foundation
 
@@ -33,11 +38,18 @@ enum Constants {
         static let carts = "carts"
         static let orders = "orders"
         static let reviews = "reviews"
+
+        /// Path to a given restaurant's menuItems subcollection, e.g.
+        /// "restaurants/abc123/menuItems". Use this instead of concatenating
+        /// `restaurants` + id + `menuItems` by hand at call sites.
+        static func menuItemsPath(restaurantId: String) -> String {
+            "\(restaurants)/\(restaurantId)/\(menuItems)"
+        }
     }
 
     // MARK: - Order Status Values
     // String-based status matching the `status` field in Firestore's
-    // `orders` collection (see 02_Firestore_Schema.md)
+    // `orders` collection (see docs/02_Firestore_Schema.md)
     enum OrderStatus {
         static let pending = "pending"
         static let confirmed = "confirmed"
@@ -45,6 +57,9 @@ enum Constants {
         static let outForDelivery = "out_for_delivery"
         static let delivered = "delivered"
         static let cancelled = "cancelled"
+
+        /// Display order for status-tracker UIs (Phase 6/7)
+        static let ordered: [String] = [pending, confirmed, preparing, outForDelivery, delivered]
     }
 
     // MARK: - User Roles

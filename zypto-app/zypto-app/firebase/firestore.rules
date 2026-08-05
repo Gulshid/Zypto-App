@@ -1,0 +1,102 @@
+// firestore.rules
+// New in Phase 3.
+//
+// Deploy with: firebase deploy --only firestore:rules
+// (or paste into Firebase Console → Firestore Database → Rules)
+//
+// Works entirely on the Spark (free) plan — security rules cost nothing,
+// they're just evaluated by Firestore itself, no Cloud Functions involved.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isRestaurantOwnerRole() {
+      return isSignedIn() && myRole() == 'restaurant_owner';
+    }
+
+    // ---------- users/{uid} ----------
+    // Phase 2. A user can read/write only their own profile document.
+    // Nobody can read someone else's profile directly (restaurant/review
+    // screens use the denormalized name fields instead — see Restaurant.swift
+    // and Review.swift comments).
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    // ---------- restaurants/{restaurantId} ----------
+    // Public read (anyone signed in can browse). Only the restaurant's
+    // owner can create/edit/delete it, and only if their user doc says
+    // role == restaurant_owner.
+    match /restaurants/{restaurantId} {
+      allow read: if isSignedIn();
+      allow create: if isRestaurantOwnerRole()
+                    && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn()
+                    && resource.data.ownerId == request.auth.uid;
+
+      // ---------- restaurants/{restaurantId}/menuItems/{menuItemId} ----------
+      // Public read. Only the parent restaurant's owner can write.
+      match /menuItems/{menuItemId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn()
+                    && get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.ownerId == request.auth.uid;
+      }
+    }
+
+    // ---------- carts/{uid} ----------
+    // A cart belongs to exactly one user (document ID == uid). Only that
+    // user can ever read or write it.
+    match /carts/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ---------- orders/{orderId} ----------
+    // Customers can create orders for themselves and read their own order
+    // history. Restaurant owners can read/update (status only, in spirit —
+    // Firestore rules can't easily diff fields) orders placed at a
+    // restaurant they own, for the dashboard in Phase 7.
+    match /orders/{orderId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.customerId == request.auth.uid;
+
+      allow read: if isSignedIn()
+                    && (resource.data.customerId == request.auth.uid
+                        || get(/databases/$(database)/documents/restaurants/$(resource.data.restaurantId)).data.ownerId == request.auth.uid);
+
+      allow update: if isSignedIn()
+                    && get(/databases/$(database)/documents/restaurants/$(resource.data.restaurantId)).data.ownerId == request.auth.uid;
+
+      allow delete: if false;
+    }
+
+    // ---------- reviews/{reviewId} ----------
+    // Public read. A signed-in customer can create a review under their
+    // own name; nobody can edit or delete a review once posted (keeps
+    // rules simple — a "no reviews yet" edit/delete UI isn't in scope
+    // until much later, if ever).
+    match /reviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
