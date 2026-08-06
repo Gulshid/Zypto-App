@@ -3,17 +3,20 @@
 //  FoodDeliveryApp
 //
 //  New in Phase 5. Shown in place of the checkout form once
-//  CheckoutViewModel.placeOrder() succeeds. Order history (a list of
-//  past confirmations like this one) and live status tracking beyond
-//  this screen are Phase 6.
+//  CheckoutViewModel.placeOrder() succeeds.
 //
 //  Location in project: Features/Checkout/Views/OrderConfirmationView.swift
+//
+//  UPDATED IN PHASE 6: added a "Track Order" link into the new live
+//  OrderTrackingView, now that order status updates are backed by a
+//  real Firestore listener instead of just a static confirmation.
 //
 
 import SwiftUI
 
 struct OrderConfirmationView: View {
     let order: Order
+    let orderRepository: OrderRepositoryProtocol
     let onDone: () -> Void
 
     var body: some View {
@@ -45,14 +48,25 @@ struct OrderConfirmationView: View {
 
             Spacer()
 
-            Button(action: onDone) {
-                Text("Back to Restaurants")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.orange)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            VStack(spacing: 12) {
+                NavigationLink {
+                    OrderTrackingView(order: order, orderRepository: orderRepository)
+                } label: {
+                    Text("Track Order")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                Button(action: onDone) {
+                    Text("Back to Restaurants")
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
@@ -70,18 +84,21 @@ struct OrderConfirmationView: View {
 }
 
 #Preview {
-    OrderConfirmationView(
-        order: Order.from(
-            cart: Cart(
-                id: "u1", restaurantId: "r1",
-                items: [CartItem(id: "1", menuItemId: "m1", restaurantId: "r1", name: "Pizza", unitPrice: 14.99, quantity: 1, selectedExtras: [], note: nil)],
-                updatedAt: Date()
+    NavigationStack {
+        OrderConfirmationView(
+            order: Order.from(
+                cart: Cart(
+                    id: "u1", restaurantId: "r1",
+                    items: [CartItem(id: "1", menuItemId: "m1", restaurantId: "r1", name: "Pizza", unitPrice: 14.99, quantity: 1, selectedExtras: [], note: nil)],
+                    updatedAt: Date()
+                ),
+                restaurantName: "Tony's Pizzeria",
+                deliveryAddress: "123 Main St, Apt 4B",
+                deliveryFee: 2.99,
+                orderId: UUID().uuidString
             ),
-            restaurantName: "Tony's Pizzeria",
-            deliveryAddress: "123 Main St, Apt 4B",
-            deliveryFee: 2.99,
-            orderId: UUID().uuidString
-        ),
-        onDone: {}
-    )
+            orderRepository: OrderRepository(firestoreService: FirestoreServiceLive()),
+            onDone: {}
+        )
+    }
 }

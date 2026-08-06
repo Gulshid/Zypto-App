@@ -15,6 +15,7 @@ import SwiftUI
 struct CheckoutView: View {
     @StateObject private var viewModel: CheckoutViewModel
     @Environment(\.dismiss) private var dismiss
+    private let orderRepository: OrderRepositoryProtocol
     /// Lets the presenting CartView refresh once the order is placed and
     /// the cart is cleared server-side.
     private let onOrderPlaced: () -> Void
@@ -27,6 +28,7 @@ struct CheckoutView: View {
         onOrderPlaced: @escaping () -> Void
     ) {
         self.onOrderPlaced = onOrderPlaced
+        self.orderRepository = appEnvironment.orderRepository
         _viewModel = StateObject(wrappedValue: CheckoutViewModel(
             cart: cart,
             restaurantName: restaurantName,
@@ -39,7 +41,7 @@ struct CheckoutView: View {
     var body: some View {
         Group {
             if let order = viewModel.placedOrder {
-                OrderConfirmationView(order: order) {
+                OrderConfirmationView(order: order, orderRepository: orderRepository) {
                     onOrderPlaced()
                     dismiss()
                 }

@@ -14,6 +14,9 @@
 //  as an environmentObject so RestaurantDetailView (adding items) and
 //  CartView (pushed from the new toolbar cart button) share one cart.
 //
+//  UPDATED IN PHASE 6: added a toolbar button into the new Order
+//  History screen (live order list + status tracking).
+//
 
 import SwiftUI
 
@@ -53,6 +56,13 @@ struct HomeView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         cartButton
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            OrderHistoryView(uid: currentUser.id, appEnvironment: appEnvironment)
+                        } label: {
+                            Image(systemName: "receipt")
+                        }
                     }
                 }
                 .task {
