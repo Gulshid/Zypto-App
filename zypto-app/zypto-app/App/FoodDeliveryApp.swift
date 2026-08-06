@@ -13,6 +13,9 @@
 //  still land on HomePlaceholderView until their dashboard ships in
 //  Phase 7.
 //
+//  UPDATED IN PHASE 7: Restaurant Owners now route to DashboardView —
+//  first-run restaurant setup, then Menu/Orders/Analytics/Profile tabs.
+//
 
 import SwiftUI
 import FirebaseCore
@@ -82,8 +85,7 @@ struct FoodDeliveryApp: App {
 }
 
 /// Routes between the auth flow, role selection, and each role's home
-/// screen based on AuthViewModel's published session state. The
-/// Restaurant Owner dashboard replaces HomePlaceholderView in Phase 7.
+/// screen based on AuthViewModel's published session state.
 struct RootView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var appEnvironment: AppEnvironment
@@ -101,8 +103,7 @@ struct RootView: View {
                 if user.isCustomer {
                     HomeView(currentUser: user, appEnvironment: appEnvironment)
                 } else {
-                    // Restaurant Owner dashboard arrives in Phase 7
-                    HomePlaceholderView(user: user)
+                    DashboardView(user: user, appEnvironment: appEnvironment)
                 }
             }
         }

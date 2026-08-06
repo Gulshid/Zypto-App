@@ -25,6 +25,11 @@
 //  the listener is torn down automatically (via onTermination) when
 //  that task is cancelled, e.g. the view disappearing.
 //
+//  UPDATED IN PHASE 7: added deleteDocument(collection:documentId:) —
+//  the Restaurant/Admin dashboard's menu management screen needs a
+//  real delete for removing a menu item entirely, not just flipping
+//  its isAvailable flag off.
+//
 
 import Foundation
 import FirebaseFirestore
@@ -33,6 +38,11 @@ protocol FirestoreServiceProtocol {
     func setDocument<T: Encodable>(_ value: T, collection: String, documentId: String) async throws
     func getDocument<T: Decodable>(_ type: T.Type, collection: String, documentId: String) async throws -> T?
     func updateFields(_ fields: [String: Any], collection: String, documentId: String) async throws
+
+    /// New in Phase 7. Restaurant Owners can permanently remove a menu
+    /// item from the dashboard (as opposed to just toggling `isAvailable`
+    /// off) — needed a real delete, which nothing before Phase 7 did.
+    func deleteDocument(collection: String, documentId: String) async throws
 
     /// Fetches every document in `collection`, optionally shaped by
     /// `queryBuilder` (add whereField/order(by:)/limit calls to the
@@ -92,6 +102,10 @@ final class FirestoreServiceLive: FirestoreServiceProtocol {
 
     func updateFields(_ fields: [String: Any], collection: String, documentId: String) async throws {
         try await db.collection(collection).document(documentId).updateData(fields)
+    }
+
+    func deleteDocument(collection: String, documentId: String) async throws {
+        try await db.collection(collection).document(documentId).delete()
     }
 
     func getDocuments<T: Decodable>(
