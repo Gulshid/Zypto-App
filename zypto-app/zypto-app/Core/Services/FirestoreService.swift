@@ -17,6 +17,14 @@
 //  Query type generically the same way setDocument/getDocument wrap
 //  DocumentReference.
 //
+//  UPDATED IN PHASE 6: added listenToDocument/listenToDocuments —
+//  live-updating counterparts to getDocument/getDocuments, backed by
+//  Firestore's addSnapshotListener instead of a one-shot getDocument()
+//  call. Returned as AsyncStream so call sites consume them with plain
+//  `for await` inside a SwiftUI `.task { }` — no Combine needed, and
+//  the listener is torn down automatically (via onTermination) when
+//  that task is cancelled, e.g. the view disappearing.
+//
 
 import Foundation
 import FirebaseFirestore
@@ -35,6 +43,25 @@ protocol FirestoreServiceProtocol {
         collection: String,
         queryBuilder: ((Query) -> Query)?
     ) async throws -> [T]
+
+    /// Live updates for a single document — e.g. an order's `status`
+    /// field changing as a restaurant updates it. Yields `nil` if the
+    /// document doesn't exist (or is deleted) instead of throwing, since
+    /// "no document yet" is a normal state to render, not an error.
+    func listenToDocument<T: Decodable>(
+        _ type: T.Type,
+        collection: String,
+        documentId: String
+    ) -> AsyncStream<T?>
+
+    /// Live updates for a collection query — e.g. a customer's order
+    /// history refreshing the instant a new order is created or an
+    /// existing one's status changes, with no manual refresh/polling.
+    func listenToDocuments<T: Decodable>(
+        _ type: T.Type,
+        collection: String,
+        queryBuilder: ((Query) -> Query)?
+    ) -> AsyncStream<[T]>
 }
 
 extension FirestoreServiceProtocol {
@@ -43,6 +70,10 @@ extension FirestoreServiceProtocol {
     /// to pass `nil` explicitly.
     func getDocuments<T: Decodable>(_ type: T.Type, collection: String) async throws -> [T] {
         try await getDocuments(type, collection: collection, queryBuilder: nil)
+    }
+
+    func listenToDocuments<T: Decodable>(_ type: T.Type, collection: String) -> AsyncStream<[T]> {
+        listenToDocuments(type, collection: collection, queryBuilder: nil)
     }
 }
 
@@ -77,5 +108,52 @@ final class FirestoreServiceLive: FirestoreServiceProtocol {
         // to decode (e.g. a stray malformed doc from manual console edits)
         // instead of failing the whole list for every other valid document.
         return snapshot.documents.compactMap { try? $0.data(as: T.self) }
+    }
+
+    func listenToDocument<T: Decodable>(
+        _ type: T.Type,
+        collection: String,
+        documentId: String
+    ) -> AsyncStream<T?> {
+        AsyncStream { continuation in
+            let registration = db.collection(collection).document(documentId)
+                .addSnapshotListener { snapshot, _ in
+                    guard let snapshot, snapshot.exists else {
+                        continuation.yield(nil)
+                        return
+                    }
+                    continuation.yield(try? snapshot.data(as: T.self))
+                }
+            // Fires when the consuming Task is cancelled (e.g. the
+            // SwiftUI view stops observing) — detaches the Firestore
+            // listener so it doesn't keep running (and billing reads)
+            // in the background.
+            continuation.onTermination = { _ in
+                registration.remove()
+            }
+        }
+    }
+
+    func listenToDocuments<T: Decodable>(
+        _ type: T.Type,
+        collection: String,
+        queryBuilder: ((Query) -> Query)? = nil
+    ) -> AsyncStream<[T]> {
+        AsyncStream { continuation in
+            var query: Query = db.collection(collection)
+            if let queryBuilder {
+                query = queryBuilder(query)
+            }
+            let registration = query.addSnapshotListener { snapshot, _ in
+                guard let snapshot else {
+                    continuation.yield([])
+                    return
+                }
+                continuation.yield(snapshot.documents.compactMap { try? $0.data(as: T.self) })
+            }
+            continuation.onTermination = { _ in
+                registration.remove()
+            }
+        }
     }
 }
