@@ -14,6 +14,9 @@
 //  of the Phase 2 stub. Wired up restaurantRepository, menuRepository,
 //  and favoritesRepository for the Phase 4 browsing feature.
 //
+//  UPDATED IN PHASE 5: wired up cartRepository and orderRepository for
+//  the Cart & Checkout flow.
+//
 
 import Foundation
 
@@ -29,12 +32,11 @@ final class AppEnvironment: ObservableObject {
     let restaurantRepository: RestaurantRepositoryProtocol
     let menuRepository: MenuRepositoryProtocol
     let favoritesRepository: FavoritesRepositoryProtocol
+    let cartRepository: CartRepositoryProtocol
+    let orderRepository: OrderRepositoryProtocol
 
-    // Uncomment and wire these up as each repository is implemented
-    // in its corresponding phase:
+    // Uncomment and wire this up once Phase 9 lands:
     //
-    // let cartRepository: CartRepository
-    // let orderRepository: OrderRepository
     // let reviewRepository: ReviewRepository
 
     init(
@@ -49,6 +51,8 @@ final class AppEnvironment: ObservableObject {
         self.restaurantRepository = RestaurantRepository(firestoreService: firestoreService)
         self.menuRepository = MenuRepository(firestoreService: firestoreService)
         self.favoritesRepository = FavoritesRepository(firestoreService: firestoreService)
+        self.cartRepository = CartRepository(firestoreService: firestoreService)
+        self.orderRepository = OrderRepository(firestoreService: firestoreService)
     }
 }
 

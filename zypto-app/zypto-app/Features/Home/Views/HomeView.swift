@@ -10,12 +10,17 @@
 //
 //  Location in project: Features/Home/Views/HomeView.swift
 //
+//  UPDATED IN PHASE 5: owns the session's CartViewModel and injects it
+//  as an environmentObject so RestaurantDetailView (adding items) and
+//  CartView (pushed from the new toolbar cart button) share one cart.
+//
 
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: HomeViewModel
+    @StateObject private var cartViewModel: CartViewModel
 
     private let currentUser: AppUser
     private let appEnvironment: AppEnvironment
@@ -27,6 +32,11 @@ struct HomeView: View {
             uid: currentUser.id,
             restaurantRepository: appEnvironment.restaurantRepository,
             favoritesRepository: appEnvironment.favoritesRepository
+        ))
+        _cartViewModel = StateObject(wrappedValue: CartViewModel(
+            uid: currentUser.id,
+            cartRepository: appEnvironment.cartRepository,
+            restaurantRepository: appEnvironment.restaurantRepository
         ))
     }
 
@@ -41,9 +51,34 @@ struct HomeView: View {
                             authViewModel.signOut()
                         }
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        cartButton
+                    }
                 }
-                .task { await viewModel.loadInitial() }
+                .task {
+                    await viewModel.loadInitial()
+                    await cartViewModel.loadCart()
+                }
                 .refreshable { await viewModel.loadInitial() }
+        }
+        .environmentObject(cartViewModel)
+    }
+
+    private var cartButton: some View {
+        NavigationLink {
+            CartView(cartViewModel: cartViewModel, appEnvironment: appEnvironment)
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bag")
+                if cartViewModel.itemCount > 0 {
+                    Text("\(cartViewModel.itemCount)")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(Color.orange, in: Circle())
+                        .offset(x: 10, y: -10)
+                }
+            }
         }
     }
 

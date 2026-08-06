@@ -72,4 +72,11 @@ enum Constants {
         static let customer = "customer"
         static let restaurantOwner = "restaurant_owner"
     }
+
+    // MARK: - Checkout
+    // New in Phase 5. Flat delivery fee for every order — per-restaurant
+    // or distance-based delivery pricing is out of scope for this project.
+    enum Checkout {
+        static let deliveryFee = 2.99
+    }
 }
