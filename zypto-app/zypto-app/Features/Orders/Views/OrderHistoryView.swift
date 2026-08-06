@@ -8,19 +8,22 @@
 //
 //  Location in project: Features/Orders/Views/OrderHistoryView.swift
 //
+//  UPDATED IN PHASE 8: now takes an already-running OrderHistoryViewModel
+//  instead of constructing its own — HomeView owns the instance so its
+//  Firestore listener (and the real-time notifications/toasts it
+//  drives) keeps running the whole time a customer is in the app, not
+//  just while this screen happens to be on screen. See HomeView.
+//
 
 import SwiftUI
 
 struct OrderHistoryView: View {
-    @StateObject private var viewModel: OrderHistoryViewModel
+    @ObservedObject private var viewModel: OrderHistoryViewModel
     private let orderRepository: OrderRepositoryProtocol
 
-    init(uid: String, appEnvironment: AppEnvironment) {
-        self.orderRepository = appEnvironment.orderRepository
-        _viewModel = StateObject(wrappedValue: OrderHistoryViewModel(
-            uid: uid,
-            orderRepository: appEnvironment.orderRepository
-        ))
+    init(viewModel: OrderHistoryViewModel, orderRepository: OrderRepositoryProtocol) {
+        self.viewModel = viewModel
+        self.orderRepository = orderRepository
     }
 
     var body: some View {
@@ -43,7 +46,11 @@ struct OrderHistoryView: View {
         }
         .navigationTitle("Your Orders")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await viewModel.listen() }
+        // No .task { await viewModel.listen() } here on purpose — the
+        // viewModel passed in is already listening (started by
+        // HomeView the moment the customer signs in), so attaching a
+        // second listener here would just duplicate Firestore reads
+        // and risk double-firing notifications.
     }
 
     private var emptyState: some View {

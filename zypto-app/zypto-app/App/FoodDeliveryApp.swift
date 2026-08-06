@@ -16,6 +16,12 @@
 //  UPDATED IN PHASE 7: Restaurant Owners now route to DashboardView —
 //  first-run restaurant setup, then Menu/Orders/Analytics/Profile tabs.
 //
+//  UPDATED IN PHASE 8: RootView now (1) requests notification
+//  authorization and clears any stale app-icon badge the moment a
+//  session becomes signed-in, and (2) overlays ToastCenter's banner
+//  (Features/Shared/Views/ToastView.swift) above the whole app so a
+//  toast can appear regardless of which screen is on top.
+//
 
 import SwiftUI
 import FirebaseCore
@@ -107,6 +113,25 @@ struct RootView: View {
                 }
             }
         }
+        // New in Phase 8. Keyed on isSignedIn rather than firing once
+        // in .onAppear: re-runs (and re-prompts nothing, since iOS only
+        // ever shows the permission dialog once) each time a session
+        // transitions into .signedIn — e.g. after a sign-out/sign-in
+        // with a different account — so the badge always starts fresh
+        // for whoever is now signed in.
+        .task(id: isSignedIn) {
+            guard isSignedIn else { return }
+            await appEnvironment.notificationService.requestAuthorization()
+            await appEnvironment.notificationService.clearBadge()
+        }
+        .toastOverlay(appEnvironment.toastCenter)
+    }
+
+    private var isSignedIn: Bool {
+        if case .signedIn = authViewModel.sessionState {
+            return true
+        }
+        return false
     }
 
     private var splash: some View {

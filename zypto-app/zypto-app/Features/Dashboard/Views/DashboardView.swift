@@ -15,6 +15,14 @@
 //
 //  Location in project: Features/Dashboard/Views/DashboardView.swift
 //
+//  UPDATED IN PHASE 8: added a second `.task(id:)` that (re)starts
+//  DashboardViewModel's order listener whenever the restaurant's id
+//  becomes known/changes — covers both the normal case (restaurant
+//  already existed when the dashboard opened) and first-run (restaurant
+//  is created *during* this session via RestaurantProfileView, which
+//  flows into applyUpdatedRestaurant). The Orders tab now also shows a
+//  badge of in-progress orders, driven by that same listener.
+//
 
 import SwiftUI
 
@@ -31,7 +39,10 @@ struct DashboardView: View {
         self.appEnvironment = appEnvironment
         _viewModel = StateObject(wrappedValue: DashboardViewModel(
             ownerId: user.id,
-            restaurantRepository: appEnvironment.restaurantRepository
+            restaurantRepository: appEnvironment.restaurantRepository,
+            orderRepository: appEnvironment.orderRepository,
+            notificationService: appEnvironment.notificationService,
+            toastCenter: appEnvironment.toastCenter
         ))
     }
 
@@ -52,6 +63,13 @@ struct DashboardView: View {
             }
         }
         .task { await viewModel.loadRestaurant() }
+        // Restarts (fresh badge/notification state) any time the
+        // restaurant's id changes — including going from nil (first-run
+        // setup) to a real id the moment RestaurantProfileView saves.
+        .task(id: viewModel.restaurant?.id) {
+            guard let restaurantId = viewModel.restaurant?.id else { return }
+            await viewModel.listenForOrders(restaurantId: restaurantId)
+        }
     }
 
     private func tabs(for restaurant: Restaurant) -> some View {
@@ -61,6 +79,7 @@ struct DashboardView: View {
 
             IncomingOrdersView(restaurantId: restaurant.id, orderRepository: appEnvironment.orderRepository)
                 .tabItem { Label("Orders", systemImage: "bag") }
+                .badge(viewModel.activeOrderCount)
 
             AnalyticsView(restaurantId: restaurant.id, orderRepository: appEnvironment.orderRepository)
                 .tabItem { Label("Analytics", systemImage: "chart.bar") }
