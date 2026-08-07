@@ -25,6 +25,10 @@
 //  button also now shows a badge of in-progress orders, same pattern
 //  as the existing cart item-count badge below.
 //
+//  UPDATED IN PHASE 9: passes the full `currentUser` (was just `uid`)
+//  into RestaurantDetailView, which now needs the customer's display
+//  name to construct its ReviewsViewModel.
+//
 
 import SwiftUI
 
@@ -145,7 +149,7 @@ struct HomeView: View {
                             NavigationLink {
                                 RestaurantDetailView(
                                     restaurant: restaurant,
-                                    uid: currentUser.id,
+                                    currentUser: currentUser,
                                     isFavorite: viewModel.isFavorite(restaurant.id),
                                     appEnvironment: appEnvironment,
                                     onFavoriteChanged: { id, isFavorite in

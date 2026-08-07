@@ -12,18 +12,38 @@
 //  once the cart has items, and an alert confirms before replacing a
 //  cart that belongs to a different restaurant.
 //
+//  UPDATED IN PHASE 9:
+//   - Menu search bar + category/price filter chips (RestaurantDetailViewModel
+//     now filters `menuItems` client-side; see that file). A plain
+//     TextField is used instead of `.searchable` because this view is
+//     pushed inside HomeView's NavigationStack, which already owns a
+//     `.searchable` for restaurant search — a pushed view can't attach
+//     a second one.
+//   - Ratings & Reviews section: average rating + a short preview of
+//     recent reviews, a "See all N reviews" link to AllReviewsView, and
+//     a "Write a Review" button (hidden once the signed-in customer has
+//     already reviewed this restaurant) that presents WriteReviewView.
+//     Backed by the new ReviewsViewModel, owned here the same way
+//     RestaurantDetailViewModel owns the menu.
+//   - init now takes the full `currentUser: AppUser` (was just `uid:`)
+//     since ReviewsViewModel needs the customer's display name to
+//     denormalize onto new Review documents.
+//
 
 import SwiftUI
 
 struct RestaurantDetailView: View {
     @EnvironmentObject private var cartViewModel: CartViewModel
     @StateObject private var viewModel: RestaurantDetailViewModel
+    @StateObject private var reviewsViewModel: ReviewsViewModel
     private let cloudinaryService: CloudinaryServiceProtocol
     private let appEnvironment: AppEnvironment
 
+    @State private var showingWriteReview = false
+
     init(
         restaurant: Restaurant,
-        uid: String,
+        currentUser: AppUser,
         isFavorite: Bool,
         appEnvironment: AppEnvironment,
         onFavoriteChanged: ((String, Bool) -> Void)? = nil
@@ -32,13 +52,19 @@ struct RestaurantDetailView: View {
         self.appEnvironment = appEnvironment
         let model = RestaurantDetailViewModel(
             restaurant: restaurant,
-            uid: uid,
+            uid: currentUser.id,
             isFavorite: isFavorite,
             menuRepository: appEnvironment.menuRepository,
             favoritesRepository: appEnvironment.favoritesRepository
         )
         model.onFavoriteChanged = onFavoriteChanged
         _viewModel = StateObject(wrappedValue: model)
+        _reviewsViewModel = StateObject(wrappedValue: ReviewsViewModel(
+            restaurantId: restaurant.id,
+            uid: currentUser.id,
+            customerName: currentUser.fullName,
+            reviewRepository: appEnvironment.reviewRepository
+        ))
     }
 
     var body: some View {
@@ -47,19 +73,31 @@ struct RestaurantDetailView: View {
                 header
                 info
                 Divider().padding(.vertical, 8)
+                menuSearchAndFilters
                 menu
+                Divider().padding(.vertical, 8)
+                reviewsSection
             }
-            // Leaves room so the last menu item isn't hidden behind the
+            // Leaves room so the last section isn't hidden behind the
             // floating cart bar.
             .padding(.bottom, cartViewModel.itemCount > 0 ? 72 : 0)
         }
         .navigationTitle(viewModel.restaurant.name)
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.loadMenu() }
+        .task { await reviewsViewModel.loadReviews() }
+        .onAppear {
+            reviewsViewModel.onAggregateChanged = { average, count in
+                viewModel.applyAggregateChange(averageRating: average, reviewCount: count)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             if cartViewModel.itemCount > 0 {
                 viewCartBar
             }
+        }
+        .sheet(isPresented: $showingWriteReview) {
+            WriteReviewView(viewModel: reviewsViewModel, restaurantName: viewModel.restaurant.name)
         }
         .alert(
             "Start a new cart?",
@@ -114,11 +152,11 @@ struct RestaurantDetailView: View {
 
             HStack(spacing: 4) {
                 Image(systemName: "star.fill").foregroundStyle(.orange)
-                Text(viewModel.restaurant.reviewCount > 0
-                     ? String(format: "%.1f", viewModel.restaurant.averageRating)
+                Text(viewModel.reviewCount > 0
+                     ? String(format: "%.1f", viewModel.averageRating)
                      : "New")
                     .bold()
-                Text("(\(viewModel.restaurant.reviewCount) reviews)")
+                Text("(\(viewModel.reviewCount) reviews)")
                     .foregroundStyle(.secondary)
                 Spacer()
                 if !viewModel.restaurant.isOpen {
@@ -132,6 +170,83 @@ struct RestaurantDetailView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
+    }
+
+    // MARK: - Phase 9: menu search + filters
+
+    private var menuSearchAndFilters: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search this menu", text: $viewModel.searchText)
+                    .textFieldStyle(.plain)
+                if !viewModel.searchText.isEmpty {
+                    Button {
+                        viewModel.searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(10)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal)
+
+            if !viewModel.availableCategories.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(viewModel.availableCategories, id: \.self) { category in
+                            filterChip(
+                                title: category,
+                                isSelected: viewModel.selectedCategory == category
+                            ) {
+                                viewModel.selectCategory(category)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(PriceFilter.allCases) { tier in
+                        filterChip(
+                            title: tier.label,
+                            isSelected: viewModel.selectedPriceFilter == tier
+                        ) {
+                            viewModel.selectedPriceFilter = tier
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            if viewModel.isFiltering {
+                Button("Clear Filters") {
+                    viewModel.clearFilters()
+                }
+                .font(.footnote.bold())
+                .padding(.horizontal)
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    private func filterChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.bold())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.orange : Color(.secondarySystemBackground))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -148,6 +263,18 @@ struct RestaurantDetailView: View {
             Text("This restaurant hasn't added any menu items yet.")
                 .foregroundStyle(.secondary)
                 .padding()
+        } else if viewModel.filteredMenuItems.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 32))
+                    .foregroundStyle(.secondary)
+                Text("No menu items match your filters")
+                    .foregroundStyle(.secondary)
+                Button("Clear Filters") { viewModel.clearFilters() }
+                    .font(.subheadline.bold())
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
         } else {
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(viewModel.menuSections, id: \.category) { section in
@@ -180,6 +307,72 @@ struct RestaurantDetailView: View {
             }
             .padding(.bottom, 24)
         }
+    }
+
+    // MARK: - Phase 9: reviews
+
+    private var reviewsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Ratings & Reviews")
+                    .font(.headline)
+                Spacer()
+                if !reviewsViewModel.hasReviewed {
+                    Button("Write a Review") {
+                        showingWriteReview = true
+                    }
+                    .font(.subheadline.bold())
+                }
+            }
+            .padding(.horizontal)
+
+            HStack(spacing: 8) {
+                StarRatingView(rating: viewModel.averageRating, font: .subheadline)
+                Text(viewModel.reviewCount > 0
+                     ? String(format: "%.1f · %d review%@", viewModel.averageRating, viewModel.reviewCount, viewModel.reviewCount == 1 ? "" : "s")
+                     : "No reviews yet")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+
+            if reviewsViewModel.isLoading && reviewsViewModel.reviews.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            } else if reviewsViewModel.reviews.isEmpty {
+                Text("Be the first to review this restaurant.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(reviewsViewModel.reviews.prefix(3)) { review in
+                        ReviewRowView(review: review)
+                            .padding(.horizontal)
+                        Divider().padding(.leading)
+                    }
+                }
+
+                if reviewsViewModel.reviews.count > 3 {
+                    NavigationLink {
+                        AllReviewsView(restaurantName: viewModel.restaurant.name, viewModel: reviewsViewModel)
+                    } label: {
+                        Text("See all \(reviewsViewModel.reviews.count) reviews")
+                            .font(.subheadline.bold())
+                    }
+                    .padding(.horizontal)
+                }
+            }
+
+            if let errorMessage = reviewsViewModel.errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal)
+            }
+        }
+        .padding(.bottom, 24)
     }
 
     private var viewCartBar: some View {

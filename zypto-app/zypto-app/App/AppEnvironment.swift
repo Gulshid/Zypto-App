@@ -23,6 +23,9 @@
 //  listener (OrderHistoryViewModel, DashboardViewModel) can surface a
 //  real-time event no matter which screen is currently on top.
 //
+//  UPDATED IN PHASE 9: wired up reviewRepository so RestaurantDetailView
+//  can construct a ReviewsViewModel (ratings & reviews feature).
+//
 
 import Foundation
 
@@ -41,6 +44,7 @@ final class AppEnvironment: ObservableObject {
     let favoritesRepository: FavoritesRepositoryProtocol
     let cartRepository: CartRepositoryProtocol
     let orderRepository: OrderRepositoryProtocol
+    let reviewRepository: ReviewRepositoryProtocol
 
     // MARK: - App-wide UI state
     /// In-app toast/snackbar alerts (Features/Shared/Views/ToastView.swift).
@@ -48,10 +52,6 @@ final class AppEnvironment: ObservableObject {
     /// way — one instance for the whole app's lifetime, presented once
     /// at the root (see RootView in App/FoodDeliveryApp.swift).
     let toastCenter: ToastCenter
-
-    // Uncomment and wire this up once Phase 9 lands:
-    //
-    // let reviewRepository: ReviewRepository
 
     init(
         authService: AuthServiceProtocol = AuthServiceFirebase(),
@@ -69,6 +69,7 @@ final class AppEnvironment: ObservableObject {
         self.favoritesRepository = FavoritesRepository(firestoreService: firestoreService)
         self.cartRepository = CartRepository(firestoreService: firestoreService)
         self.orderRepository = OrderRepository(firestoreService: firestoreService)
+        self.reviewRepository = ReviewRepository(firestoreService: firestoreService)
         self.toastCenter = ToastCenter()
     }
 }
