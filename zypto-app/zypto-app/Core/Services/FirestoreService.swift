@@ -131,7 +131,14 @@ final class FirestoreServiceLive: FirestoreServiceProtocol {
     ) -> AsyncStream<T?> {
         AsyncStream { continuation in
             let registration = db.collection(collection).document(documentId)
-                .addSnapshotListener { snapshot, _ in
+                .addSnapshotListener { snapshot, error in
+                    if let error {
+                        // Surfaced to the console so a permission/rules
+                        // problem shows up as a visible error instead of
+                        // silently yielding nil/empty and looking like
+                        // the data just vanished.
+                        print("🔥 listenToDocument(\(collection)/\(documentId)) error: \(error.localizedDescription)")
+                    }
                     guard let snapshot, snapshot.exists else {
                         continuation.yield(nil)
                         return
@@ -158,7 +165,12 @@ final class FirestoreServiceLive: FirestoreServiceProtocol {
             if let queryBuilder {
                 query = queryBuilder(query)
             }
-            let registration = query.addSnapshotListener { snapshot, _ in
+            let registration = query.addSnapshotListener { snapshot, error in
+                if let error {
+                    // See listenToDocument's comment above — this is the
+                    // one that was hiding the orders-disappearing bug.
+                    print("🔥 listenToDocuments(\(collection)) error: \(error.localizedDescription)")
+                }
                 guard let snapshot else {
                     continuation.yield([])
                     return

@@ -1,6 +1,16 @@
 // firestore.rules
 // UPDATED IN PHASE 4: added the favorites/{uid} collection rule.
 //
+// UPDATED IN PHASE 10: fixed orders/{orderId} permission bug.
+// PROBLEM: the nested get() call in read/update rules below was
+// failing during real-time listener re-evaluation, causing orders to
+// disappear from the dashboard seconds after they appeared.
+// SOLUTION: OrderRepository.createOrder(_:) now stamps the owning
+// restaurant's UID directly onto the order as restaurantOwnerId at
+// creation time (see Order.swift). Rules below check that field
+// directly instead of doing a nested read of the restaurants
+// collection — no nested get() = no cascading listener failures.
+//
 // Deploy with: firebase deploy --only firestore:rules
 // (or paste into Firebase Console → Firestore Database → Rules)
 //
@@ -69,20 +79,27 @@ service cloud.firestore {
     }
 
     // ---------- orders/{orderId} ----------
+    // Phase 10: uses the denormalized restaurantOwnerId field (written
+    // by OrderRepository.createOrder(_:), see Order.swift) instead of a
+    // nested get() to the restaurants collection — that nested read was
+    // the root cause of orders disappearing from the dashboard's
+    // real-time listener.
+    //
     // Customers can create orders for themselves and read their own order
-    // history. Restaurant owners can read/update (status only, in spirit —
-    // Firestore rules can't easily diff fields) orders placed at a
+    // history. Restaurant owners can read/update orders placed at a
     // restaurant they own, for the dashboard in Phase 7.
     match /orders/{orderId} {
       allow create: if isSignedIn()
-                    && request.resource.data.customerId == request.auth.uid;
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.restaurantOwnerId is string
+                    && request.resource.data.restaurantOwnerId.size() > 0;
 
       allow read: if isSignedIn()
                     && (resource.data.customerId == request.auth.uid
-                        || get(/databases/$(database)/documents/restaurants/$(resource.data.restaurantId)).data.ownerId == request.auth.uid);
+                        || resource.data.restaurantOwnerId == request.auth.uid);
 
       allow update: if isSignedIn()
-                    && get(/databases/$(database)/documents/restaurants/$(resource.data.restaurantId)).data.ownerId == request.auth.uid;
+                    && resource.data.restaurantOwnerId == request.auth.uid;
 
       allow delete: if false;
     }
