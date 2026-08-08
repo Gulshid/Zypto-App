@@ -50,33 +50,21 @@
 import SwiftUI
 
 struct HomeView: View {
-    @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: HomeViewModel
-    @StateObject private var cartViewModel: CartViewModel
-    @StateObject private var orderHistoryViewModel: OrderHistoryViewModel
+    @ObservedObject private var cartViewModel: CartViewModel
     @Namespace private var heroNamespace
 
     private let currentUser: AppUser
     private let appEnvironment: AppEnvironment
 
-    init(currentUser: AppUser, appEnvironment: AppEnvironment) {
+    init(currentUser: AppUser, appEnvironment: AppEnvironment, cartViewModel: CartViewModel) {
         self.currentUser = currentUser
         self.appEnvironment = appEnvironment
+        self.cartViewModel = cartViewModel
         _viewModel = StateObject(wrappedValue: HomeViewModel(
             uid: currentUser.id,
             restaurantRepository: appEnvironment.restaurantRepository,
             favoritesRepository: appEnvironment.favoritesRepository
-        ))
-        _cartViewModel = StateObject(wrappedValue: CartViewModel(
-            uid: currentUser.id,
-            cartRepository: appEnvironment.cartRepository,
-            restaurantRepository: appEnvironment.restaurantRepository
-        ))
-        _orderHistoryViewModel = StateObject(wrappedValue: OrderHistoryViewModel(
-            uid: currentUser.id,
-            orderRepository: appEnvironment.orderRepository,
-            notificationService: appEnvironment.notificationService,
-            toastCenter: appEnvironment.toastCenter
         ))
     }
 
@@ -87,29 +75,12 @@ struct HomeView: View {
                 .searchable(text: $viewModel.searchText, prompt: "Search restaurants or cuisines")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Sign Out", role: .destructive) {
-                            authViewModel.signOut()
-                        }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
                         cartButton
                     }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        orderHistoryButton
-                    }
                 }
-                .task {
-                    await viewModel.loadInitial()
-                    await cartViewModel.loadCart()
-                }
-                // Separate .task: listen() never returns (it's a live
-                // Firestore listener), so it needs its own task rather
-                // than being awaited sequentially above — otherwise it
-                // would block loadInitial()/loadCart() from ever running.
-                .task { await orderHistoryViewModel.listen() }
+                .task { await viewModel.loadInitial() }
                 .refreshable { await viewModel.loadInitial() }
         }
-        .environmentObject(cartViewModel)
     }
 
     private var cartButton: some View {
@@ -130,26 +101,6 @@ struct HomeView: View {
             }
         }
         .accessibilityLabel(cartViewModel.itemCount > 0 ? "Cart, \(cartViewModel.itemCount) item\(cartViewModel.itemCount == 1 ? "" : "s")" : "Cart")
-    }
-
-    private var orderHistoryButton: some View {
-        NavigationLink {
-            OrderHistoryView(viewModel: orderHistoryViewModel, orderRepository: appEnvironment.orderRepository)
-        } label: {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "receipt")
-                if orderHistoryViewModel.activeOrderCount > 0 {
-                    Text("\(orderHistoryViewModel.activeOrderCount)")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.white)
-                        .padding(4)
-                        .background(Color.orange, in: Circle())
-                        .offset(x: 10, y: -10)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-        .accessibilityLabel(orderHistoryViewModel.activeOrderCount > 0 ? "Your Orders, \(orderHistoryViewModel.activeOrderCount) active" : "Your Orders")
     }
 
     @ViewBuilder

@@ -28,6 +28,14 @@
 //  drops (Features/Shared/Views/EmptyStateView.swift), the same
 //  "applied once at the root" treatment as the toast overlay above.
 //
+//  UPDATED IN PHASE 11:
+//   - The plain icon+spinner splash is now the branded animated
+//     SplashScreenView (App/SplashScreenView.swift), shown for a
+//     minimum duration so it never just flashes on a fast connection.
+//   - Signed-in Customers now route to MainTabView (Features/Home/Views/MainTabView.swift),
+//     a bottom tab bar across Home/Orders/Favorites/Account, instead of
+//     HomeView directly.
+//
 
 import SwiftUI
 import FirebaseCore
@@ -110,22 +118,39 @@ struct RootView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var appEnvironment: AppEnvironment
 
+    // The branded splash (App/SplashScreenView.swift) is shown for at
+    // least this long, even once auth has already resolved, so it
+    // never just flashes for a frame on a fast/cached sign-in — a
+    // half-second brand moment reads as "loading", not as a glitch.
+    @State private var minimumSplashElapsed = false
+
     var body: some View {
         Group {
             switch authViewModel.sessionState {
             case .loading:
-                splash
+                SplashScreenView()
             case .signedOut:
-                AuthContainerView()
+                if minimumSplashElapsed {
+                    AuthContainerView()
+                } else {
+                    SplashScreenView()
+                }
             case .needsRoleSelection(let uid, let email, let fullName):
                 RoleSelectionView(uid: uid, email: email, fullName: fullName)
             case .signedIn(let user):
-                if user.isCustomer {
-                    HomeView(currentUser: user, appEnvironment: appEnvironment)
+                if !minimumSplashElapsed {
+                    SplashScreenView()
+                } else if user.isCustomer {
+                    MainTabView(currentUser: user, appEnvironment: appEnvironment)
                 } else {
                     DashboardView(user: user, appEnvironment: appEnvironment)
                 }
             }
+        }
+        .animation(.easeInOut(duration: 0.3), value: minimumSplashElapsed)
+        .task {
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            minimumSplashElapsed = true
         }
         // New in Phase 8. Keyed on isSignedIn rather than firing once
         // in .onAppear: re-runs (and re-prompts nothing, since iOS only
@@ -151,14 +176,5 @@ struct RootView: View {
             return true
         }
         return false
-    }
-
-    private var splash: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "fork.knife.circle.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.orange)
-            ProgressView()
-        }
     }
 }
