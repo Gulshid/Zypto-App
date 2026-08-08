@@ -33,6 +33,16 @@ final class NetworkMonitor: ObservableObject {
     private let queue = DispatchQueue(label: "com.zypto.networkmonitor")
     private var started = false
 
+    /// Explicitly `nonisolated` so `NetworkMonitor()` can be called from
+    /// AppEnvironment's synchronous, non-isolated `init()` (see
+    /// App/AppEnvironment.swift) without the compiler having to prove
+    /// that call happens on the main actor. Safe because this
+    /// initializer only assigns default values to stored properties —
+    /// it never touches `isConnected` or any other main-actor-isolated
+    /// state, so there's nothing here that actually needs isolation
+    /// until `start()` is called.
+    nonisolated init() {}
+
     /// Safe to call more than once (e.g. RootView re-appearing after a
     /// sign-out/sign-in) — only starts the underlying NWPathMonitor once.
     func start() {
