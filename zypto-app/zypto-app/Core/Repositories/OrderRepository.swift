@@ -30,9 +30,28 @@
 
 import Foundation
 
+/// New in Phase 10, alongside the restaurantOwnerId denormalization
+/// (see Order.swift and firestore.rules).
+enum OrderRepositoryError: LocalizedError {
+    case restaurantNotFound
+
+    var errorDescription: String? {
+        switch self {
+        case .restaurantNotFound:
+            return "Couldn't find the restaurant for this order."
+        }
+    }
+}
+
 protocol OrderRepositoryProtocol {
     /// Writes a fully-formed order (built via Order.from(cart:...), see
     /// Core/Models/Order.swift) as a new document keyed by order.id.
+    /// Looks up the restaurant's owner UID and stamps it onto the order
+    /// as restaurantOwnerId before writing — required by firestore.rules
+    /// (Phase 10) so the dashboard's real-time listener can verify
+    /// ownership without a nested get() that was causing orders to
+    /// disappear. Throws OrderRepositoryError.restaurantNotFound if
+    /// order.restaurantId doesn't resolve to a restaurant doc.
     func createOrder(_ order: Order) async throws
 
     /// One-shot fetch of a customer's past orders, most recent first.
@@ -73,6 +92,14 @@ final class OrderRepository: OrderRepositoryProtocol {
     }
 
     func createOrder(_ order: Order) async throws {
+        guard let restaurant = try await firestoreService.getDocument(
+            Restaurant.self, collection: Constants.Collections.restaurants, documentId: order.restaurantId
+        ) else {
+            throw OrderRepositoryError.restaurantNotFound
+        }
+
+        var order = order
+        order.restaurantOwnerId = restaurant.ownerId
         try await firestoreService.setDocument(order, collection: Constants.Collections.orders, documentId: order.id)
     }
 

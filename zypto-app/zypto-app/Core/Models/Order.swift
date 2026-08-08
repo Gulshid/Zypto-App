@@ -39,6 +39,14 @@ struct Order: Codable, Identifiable, Equatable {
     /// Denormalized so order lists/history (Phase 6) don't need a join read
     /// back to the restaurants collection just to show a name.
     var restaurantName: String
+    /// New in Phase 10. Denormalized restaurant-owner UID, populated by
+    /// OrderRepository.createOrder(_:) (not by Order.from(...) itself —
+    /// callers don't know the owner's UID at checkout time). Lets
+    /// firestore.rules check restaurant-owner permissions on the order
+    /// doc directly instead of a nested get() to the restaurants
+    /// collection, which was failing during real-time listener
+    /// re-evaluation and causing orders to disappear from the dashboard.
+    var restaurantOwnerId: String
 
     var items: [OrderItem]
     var subtotal: Double
@@ -55,14 +63,60 @@ struct Order: Codable, Identifiable, Equatable {
     var updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
-        case id, customerId, restaurantId, restaurantName, items
+        case id, customerId, restaurantId, restaurantName, restaurantOwnerId, items
         case subtotal, deliveryFee, total, deliveryAddress, status
         case createdAt, updatedAt
+    }
+
+    init(
+        id: String, customerId: String, restaurantId: String, restaurantName: String,
+        restaurantOwnerId: String, items: [OrderItem], subtotal: Double, deliveryFee: Double,
+        total: Double, deliveryAddress: String, status: String, createdAt: Date, updatedAt: Date
+    ) {
+        self.id = id
+        self.customerId = customerId
+        self.restaurantId = restaurantId
+        self.restaurantName = restaurantName
+        self.restaurantOwnerId = restaurantOwnerId
+        self.items = items
+        self.subtotal = subtotal
+        self.deliveryFee = deliveryFee
+        self.total = total
+        self.deliveryAddress = deliveryAddress
+        self.status = status
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    /// Custom decoder so orders written before restaurantOwnerId existed
+    /// (pre-Phase-10) still decode instead of silently disappearing from
+    /// history — decodeIfPresent defaults a missing field to "" rather
+    /// than throwing.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        customerId = try c.decode(String.self, forKey: .customerId)
+        restaurantId = try c.decode(String.self, forKey: .restaurantId)
+        restaurantName = try c.decode(String.self, forKey: .restaurantName)
+        restaurantOwnerId = try c.decodeIfPresent(String.self, forKey: .restaurantOwnerId) ?? ""
+        items = try c.decode([OrderItem].self, forKey: .items)
+        subtotal = try c.decode(Double.self, forKey: .subtotal)
+        deliveryFee = try c.decode(Double.self, forKey: .deliveryFee)
+        total = try c.decode(Double.self, forKey: .total)
+        deliveryAddress = try c.decode(String.self, forKey: .deliveryAddress)
+        status = try c.decode(String.self, forKey: .status)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
     }
 }
 
 extension Order {
-    static func from(cart: Cart, restaurantName: String, deliveryAddress: String, deliveryFee: Double, orderId: String) -> Order {
+    /// restaurantOwnerId is left blank here — CheckoutViewModel only
+    /// has the restaurant's name/id at checkout time, not its owner's
+    /// UID. OrderRepository.createOrder(_:) looks it up and fills it in
+    /// right before writing to Firestore. See restaurantOwnerId's doc
+    /// comment above.
+    static func from(cart: Cart, restaurantName: String, deliveryAddress: String, deliveryFee: Double, orderId: String, restaurantOwnerId: String = "") -> Order {
         let orderItems = cart.items.map {
             OrderItem(
                 id: $0.id,
@@ -80,6 +134,7 @@ extension Order {
             customerId: cart.id,
             restaurantId: cart.restaurantId ?? "",
             restaurantName: restaurantName,
+            restaurantOwnerId: restaurantOwnerId,
             items: orderItems,
             subtotal: subtotal,
             deliveryFee: deliveryFee,
