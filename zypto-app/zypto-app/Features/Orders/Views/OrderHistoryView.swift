@@ -12,7 +12,12 @@
 //  instead of constructing its own — HomeView owns the instance so its
 //  Firestore listener (and the real-time notifications/toasts it
 //  drives) keeps running the whole time a customer is in the app, not
-//  just while this screen happens to be on screen. See HomeView.
+//  just while Order History is on screen. See HomeView.
+//
+//  UPDATED IN PHASE 10: the loading state is now a handful of
+//  OrderRowSkeleton shimmer rows (Features/Shared/Views/SkeletonView.swift)
+//  instead of a single centered ProgressView, and the empty state now
+//  uses the shared EmptyStateView instead of a locally-defined copy.
 //
 
 import SwiftUI
@@ -29,10 +34,16 @@ struct OrderHistoryView: View {
     var body: some View {
         Group {
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                List(0..<5, id: \.self) { _ in
+                    OrderRowSkeleton()
+                }
+                .listStyle(.plain)
             } else if viewModel.orders.isEmpty {
-                emptyState
+                EmptyStateView(
+                    systemImage: "receipt",
+                    title: "No orders yet",
+                    message: "Your order history and live status will show up here."
+                )
             } else {
                 List(viewModel.orders) { order in
                     NavigationLink {
@@ -51,21 +62,5 @@ struct OrderHistoryView: View {
         // HomeView the moment the customer signs in), so attaching a
         // second listener here would just duplicate Firestore reads
         // and risk double-firing notifications.
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "receipt")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("No orders yet")
-                .foregroundStyle(.secondary)
-            Text("Your order history and live status will show up here.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

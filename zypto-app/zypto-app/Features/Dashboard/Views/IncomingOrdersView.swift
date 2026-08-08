@@ -11,6 +11,14 @@
 //
 //  Location in project: Features/Dashboard/Views/IncomingOrdersView.swift
 //
+//  UPDATED IN PHASE 10: the loading state is now a handful of
+//  OrderRowSkeleton shimmer rows (Features/Shared/Views/SkeletonView.swift)
+//  instead of a single centered ProgressView, and the empty state now
+//  uses the shared EmptyStateView instead of a locally-defined copy.
+//  Advancing or cancelling an order now gives a light haptic so the
+//  action feels confirmed the instant it's tapped, not only once the
+//  Firestore write round-trips.
+//
 
 import SwiftUI
 
@@ -51,36 +59,32 @@ struct IncomingOrdersView: View {
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List(0..<5, id: \.self) { _ in
+                OrderRowSkeleton()
+            }
+            .listStyle(.plain)
         } else if viewModel.filteredOrders.isEmpty {
-            emptyState
+            EmptyStateView(
+                systemImage: "bag",
+                title: viewModel.filter == .active ? "No active orders" : "No orders yet",
+                message: "New orders from customers will show up here in real time."
+            )
         } else {
             List(viewModel.filteredOrders) { order in
                 IncomingOrderRowView(
                     order: order,
                     nextStatusLabel: viewModel.nextStatus(after: order.status).map(OrderStatusDisplay.label(for:)),
-                    onAdvance: { Task { await viewModel.advanceStatus(order) } },
-                    onCancel: { Task { await viewModel.cancelOrder(order) } }
+                    onAdvance: {
+                        Haptics.tap()
+                        Task { await viewModel.advanceStatus(order) }
+                    },
+                    onCancel: {
+                        Haptics.warning()
+                        Task { await viewModel.cancelOrder(order) }
+                    }
                 )
             }
             .listStyle(.plain)
         }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "bag")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text(viewModel.filter == .active ? "No active orders" : "No orders yet")
-                .foregroundStyle(.secondary)
-            Text("New orders from customers will show up here in real time.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

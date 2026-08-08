@@ -12,6 +12,14 @@
 //
 //  Location in project: Features/Shared/Views/CachedAsyncImage.swift
 //
+//  UPDATED IN PHASE 10: the default placeholder (used by every call
+//  site in the app — none of them pass a custom `placeholder:`) is now
+//  a shimmering skeleton box (ShimmerPlaceholder, see
+//  Features/Shared/Views/SkeletonView.swift) instead of a flat gray
+//  Color. Every photo in the app — restaurant covers, menu item
+//  thumbnails — now shows a loading shimmer instead of a static block
+//  while it fetches, with no changes needed at any call site.
+//
 
 import SwiftUI
 
@@ -41,9 +49,7 @@ final class ImageCache {
 /// before hitting the network, and populates it after a successful load.
 ///
 /// Usage:
-///   CachedAsyncImage(url: cloudinaryService.optimizedURL(from: restaurant.imageURL, width: 400)) {
-///       Color(.secondarySystemBackground) // placeholder while loading / on failure
-///   }
+///   CachedAsyncImage(url: cloudinaryService.optimizedURL(from: restaurant.imageURL, width: 400))
 ///   .aspectRatio(16/9, contentMode: .fill)
 struct CachedAsyncImage<Placeholder: View>: View {
     let url: URL?
@@ -56,6 +62,9 @@ struct CachedAsyncImage<Placeholder: View>: View {
             if let uiImage {
                 Image(uiImage: uiImage)
                     .resizable()
+                    // Phase 10: a soft crossfade from skeleton to the
+                    // real photo, rather than an abrupt pop-in.
+                    .transition(.opacity.animation(.easeOut(duration: 0.2)))
             } else {
                 placeholder()
             }
@@ -92,10 +101,11 @@ struct CachedAsyncImage<Placeholder: View>: View {
     }
 }
 
-extension CachedAsyncImage where Placeholder == Color {
-    /// Convenience initializer with a neutral gray placeholder, for the
-    /// common case where a custom skeleton isn't needed.
+extension CachedAsyncImage where Placeholder == ShimmerPlaceholder {
+    /// Convenience initializer using the Phase 10 shimmering skeleton
+    /// placeholder, for the common case where a custom one isn't needed
+    /// — every call site in the app uses this.
     init(url: URL?) {
-        self.init(url: url) { Color(.secondarySystemBackground) }
+        self.init(url: url) { ShimmerPlaceholder() }
     }
 }

@@ -29,6 +29,22 @@
 //     since ReviewsViewModel needs the customer's display name to
 //     denormalize onto new Review documents.
 //
+//  UPDATED IN PHASE 10:
+//   - init now takes `heroNamespace: Namespace.ID`, forwarded from
+//     HomeView, and applies `.navigationTransition(.zoom(sourceID:in:))`
+//     handling is actually done by the caller (HomeView) around this
+//     view's NavigationLink destination — this view just needs to know
+//     the namespace so its header photo shares the same `sourceID` the
+//     card used, which is what makes the zoom look continuous.
+//   - Menu loading now shows MenuItemRowSkeleton rows instead of a
+//     single centered ProgressView; the menu-load error uses the shared
+//     ErrorStateView with a working Retry button (previously just
+//     static red text with no way to retry).
+//   - Favoriting from the header gives the same haptic + bounce
+//     treatment as the home feed card (Features/Home/Views/RestaurantCardView.swift).
+//   - Add-to-cart now gives a light success haptic alongside the
+//     existing "View Cart" bar animation.
+//
 
 import SwiftUI
 
@@ -38,18 +54,22 @@ struct RestaurantDetailView: View {
     @StateObject private var reviewsViewModel: ReviewsViewModel
     private let cloudinaryService: CloudinaryServiceProtocol
     private let appEnvironment: AppEnvironment
+    private let heroNamespace: Namespace.ID
 
     @State private var showingWriteReview = false
+    @State private var isFavoriteBouncing = false
 
     init(
         restaurant: Restaurant,
         currentUser: AppUser,
         isFavorite: Bool,
         appEnvironment: AppEnvironment,
+        heroNamespace: Namespace.ID,
         onFavoriteChanged: ((String, Bool) -> Void)? = nil
     ) {
         self.cloudinaryService = appEnvironment.cloudinaryService
         self.appEnvironment = appEnvironment
+        self.heroNamespace = heroNamespace
         let model = RestaurantDetailViewModel(
             restaurant: restaurant,
             uid: currentUser.id,
@@ -94,8 +114,10 @@ struct RestaurantDetailView: View {
         .safeAreaInset(edge: .bottom) {
             if cartViewModel.itemCount > 0 {
                 viewCartBar
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: cartViewModel.itemCount > 0)
         .sheet(isPresented: $showingWriteReview) {
             WriteReviewView(viewModel: reviewsViewModel, restaurantName: viewModel.restaurant.name)
         }
@@ -125,18 +147,36 @@ struct RestaurantDetailView: View {
             .aspectRatio(16.0 / 9.0, contentMode: .fill)
             .frame(maxWidth: .infinity)
             .clipped()
+            // Shares the sourceID the home feed card used, so the zoom
+            // transition (applied by HomeView around this view's
+            // NavigationLink destination) animates from the card's
+            // photo into this one continuously.
+            .matchedTransitionSource(id: viewModel.restaurant.id, in: heroNamespace)
 
-            Button {
-                Task { await viewModel.toggleFavorite() }
-            } label: {
-                Image(systemName: viewModel.isFavorite ? "heart.fill" : "heart")
-                    .font(.headline)
-                    .foregroundStyle(viewModel.isFavorite ? .red : .white)
-                    .padding(10)
-                    .background(.black.opacity(0.35), in: Circle())
-            }
-            .padding(12)
+            favoriteButton
+                .padding(12)
         }
+    }
+
+    private var favoriteButton: some View {
+        Button {
+            Haptics.tap()
+            Task { await viewModel.toggleFavorite() }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
+                isFavoriteBouncing = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isFavoriteBouncing = false
+            }
+        } label: {
+            Image(systemName: viewModel.isFavorite ? "heart.fill" : "heart")
+                .font(.headline)
+                .foregroundStyle(viewModel.isFavorite ? .red : .white)
+                .padding(10)
+                .background(.black.opacity(0.35), in: Circle())
+                .scaleEffect(isFavoriteBouncing ? 1.3 : 1.0)
+        }
+        .accessibilityLabel(viewModel.isFavorite ? "Remove from favorites" : "Add to favorites")
     }
 
     private var info: some View {
@@ -188,6 +228,7 @@ struct RestaurantDetailView: View {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(10)
@@ -227,7 +268,7 @@ struct RestaurantDetailView: View {
 
             if viewModel.isFiltering {
                 Button("Clear Filters") {
-                    viewModel.clearFilters()
+                    withAnimation(.default) { viewModel.clearFilters() }
                 }
                 .font(.footnote.bold())
                 .padding(.horizontal)
@@ -237,7 +278,10 @@ struct RestaurantDetailView: View {
     }
 
     private func filterChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            withAnimation(.easeInOut(duration: 0.2)) { action() }
+        } label: {
             Text(title)
                 .font(.subheadline.bold())
                 .padding(.horizontal, 14)
@@ -247,34 +291,36 @@ struct RestaurantDetailView: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     @ViewBuilder
     private var menu: some View {
         if viewModel.isLoading {
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.top, 24)
-        } else if let errorMessage = viewModel.errorMessage {
-            Text(errorMessage)
-                .foregroundStyle(.red)
-                .padding()
-        } else if viewModel.menuItems.isEmpty {
-            Text("This restaurant hasn't added any menu items yet.")
-                .foregroundStyle(.secondary)
-                .padding()
-        } else if viewModel.filteredMenuItems.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.secondary)
-                Text("No menu items match your filters")
-                    .foregroundStyle(.secondary)
-                Button("Clear Filters") { viewModel.clearFilters() }
-                    .font(.subheadline.bold())
+            VStack(spacing: 16) {
+                ForEach(0..<3, id: \.self) { _ in MenuItemRowSkeleton() }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
+            .padding(.top, 8)
+        } else if let errorMessage = viewModel.errorMessage {
+            ErrorStateView(message: errorMessage) {
+                Task { await viewModel.loadMenu() }
+            }
+            .frame(height: 220)
+        } else if viewModel.menuItems.isEmpty {
+            EmptyStateView(
+                systemImage: "fork.knife.circle",
+                title: "No menu items yet",
+                message: "This restaurant hasn't added any menu items yet."
+            )
+            .frame(height: 160)
+        } else if viewModel.filteredMenuItems.isEmpty {
+            EmptyStateView(
+                systemImage: "magnifyingglass",
+                title: "No menu items match your filters",
+                actionTitle: "Clear Filters",
+                action: { withAnimation(.default) { viewModel.clearFilters() } }
+            )
+            .frame(height: 200)
         } else {
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(viewModel.menuSections, id: \.category) { section in
@@ -288,6 +334,7 @@ struct RestaurantDetailView: View {
                                 item: item,
                                 cloudinaryService: cloudinaryService,
                                 onAdd: { quantity, extras, note in
+                                    Haptics.success()
                                     Task {
                                         await cartViewModel.addToCart(
                                             menuItem: item,
@@ -394,5 +441,6 @@ struct RestaurantDetailView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
         }
+        .accessibilityLabel("View cart, \(cartViewModel.itemCount) items, total \(cartViewModel.subtotal, format: .currency(code: "USD"))")
     }
 }

@@ -9,6 +9,10 @@
 //
 //  Location in project: Features/Cart/Views/CartView.swift
 //
+//  UPDATED IN PHASE 10: empty state now uses the shared EmptyStateView
+//  (Features/Shared/Views/EmptyStateView.swift) instead of a
+//  locally-defined copy of the same icon/title/subtitle layout.
+//
 
 import SwiftUI
 
@@ -19,7 +23,11 @@ struct CartView: View {
     var body: some View {
         Group {
             if cartViewModel.cart.isEmpty {
-                emptyState
+                EmptyStateView(
+                    systemImage: "bag",
+                    title: "Your cart is empty",
+                    message: "Add items from a restaurant to get started."
+                )
             } else {
                 cartContent
             }
@@ -113,20 +121,5 @@ struct CartView: View {
             Text(amount, format: .currency(code: "USD"))
                 .font(bold ? .subheadline.bold() : .subheadline)
         }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "bag")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("Your cart is empty")
-                .foregroundStyle(.secondary)
-            Text("Add items from a restaurant to get started.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 80)
     }
 }

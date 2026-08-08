@@ -7,6 +7,18 @@
 //
 //  Location in project: Features/Home/Views/RestaurantCardView.swift
 //
+//  UPDATED IN PHASE 10:
+//   - Favoriting now gives a light haptic tap and a small spring "pop"
+//     on the heart icon instead of just flipping the SF Symbol.
+//   - The photo/name/rating are grouped into a single VoiceOver stop
+//     ("Golden Dragon, Chinese, Spicy, 4.3 stars, 128 reviews") separate
+//     from the favorite button, which now announces its own state
+//     ("Add to favorites" / "Remove from favorites") — previously
+//     neither had a label, so VoiceOver read the raw SF Symbol names.
+//   - `.matchedTransitionSource(id:in:)` is applied by the call site in
+//     HomeView, not here, so this view doesn't need to know about the
+//     shared hero namespace.
+//
 
 import SwiftUI
 
@@ -15,6 +27,8 @@ struct RestaurantCardView: View {
     let isFavorite: Bool
     let cloudinaryService: CloudinaryServiceProtocol
     let onToggleFavorite: () -> Void
+
+    @State private var isFavoriteBouncing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -64,6 +78,7 @@ struct RestaurantCardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -72,14 +87,25 @@ struct RestaurantCardView: View {
     }
 
     private var favoriteButton: some View {
-        Button(action: onToggleFavorite) {
+        Button {
+            Haptics.tap()
+            onToggleFavorite()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
+                isFavoriteBouncing = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isFavoriteBouncing = false
+            }
+        } label: {
             Image(systemName: isFavorite ? "heart.fill" : "heart")
                 .font(.subheadline.bold())
                 .foregroundStyle(isFavorite ? .red : .white)
                 .padding(8)
                 .background(.black.opacity(0.35), in: Circle())
+                .scaleEffect(isFavoriteBouncing ? 1.3 : 1.0)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(isFavorite ? "Remove from favorites" : "Add to favorites")
     }
 }
 

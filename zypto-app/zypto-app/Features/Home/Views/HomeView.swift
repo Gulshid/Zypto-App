@@ -29,6 +29,23 @@
 //  into RestaurantDetailView, which now needs the customer's display
 //  name to construct its ReviewsViewModel.
 //
+//  UPDATED IN PHASE 10:
+//   - The initial-load spinner is now a scrollable stack of
+//     RestaurantCardSkeleton shimmer placeholders (Features/Shared/Views/SkeletonView.swift)
+//     instead of a single centered ProgressView.
+//   - Empty/error states now use the shared EmptyStateView/ErrorStateView
+//     (Features/Shared/Views/EmptyStateView.swift) instead of a
+//     locally-defined copy of the same layout.
+//   - Tapping a restaurant now zooms its cover photo into
+//     RestaurantDetailView's header using iOS 18's `.navigationTransition(.zoom)`,
+//     via a shared `heroNamespace`, instead of the plain push animation.
+//   - Category filter changes and list content now carry `.animation(_:value:)`
+//     modifiers so the chip highlight and the resulting list update
+//     animate together instead of popping.
+//   - Toolbar buttons get explicit accessibility labels that speak
+//     their live badge counts (a sighted person sees the red "3"; a
+//     VoiceOver user now hears "Cart, 3 items" the same way).
+//
 
 import SwiftUI
 
@@ -37,6 +54,7 @@ struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
     @StateObject private var cartViewModel: CartViewModel
     @StateObject private var orderHistoryViewModel: OrderHistoryViewModel
+    @Namespace private var heroNamespace
 
     private let currentUser: AppUser
     private let appEnvironment: AppEnvironment
@@ -107,9 +125,11 @@ struct HomeView: View {
                         .padding(4)
                         .background(Color.orange, in: Circle())
                         .offset(x: 10, y: -10)
+                        .accessibilityHidden(true)
                 }
             }
         }
+        .accessibilityLabel(cartViewModel.itemCount > 0 ? "Cart, \(cartViewModel.itemCount) item\(cartViewModel.itemCount == 1 ? "" : "s")" : "Cart")
     }
 
     private var orderHistoryButton: some View {
@@ -125,24 +145,31 @@ struct HomeView: View {
                         .padding(4)
                         .background(Color.orange, in: Circle())
                         .offset(x: 10, y: -10)
+                        .accessibilityHidden(true)
                 }
             }
         }
+        .accessibilityLabel(orderHistoryViewModel.activeOrderCount > 0 ? "Your Orders, \(orderHistoryViewModel.activeOrderCount) active" : "Your Orders")
     }
 
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.restaurants.isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            skeletonList
         } else if let errorMessage = viewModel.errorMessage, viewModel.restaurants.isEmpty {
-            errorState(message: errorMessage)
+            ErrorStateView(message: errorMessage) {
+                Task { await viewModel.loadInitial() }
+            }
         } else {
             ScrollView {
                 categoryFilterBar
 
                 if viewModel.filteredRestaurants.isEmpty {
-                    emptyState
+                    EmptyStateView(
+                        systemImage: "fork.knife",
+                        title: viewModel.searchText.isEmpty ? "No restaurants yet" : "No matches for \"\(viewModel.searchText)\""
+                    )
+                    .padding(.top, 40)
                 } else {
                     LazyVStack(spacing: 20) {
                         ForEach(viewModel.filteredRestaurants) { restaurant in
@@ -152,10 +179,12 @@ struct HomeView: View {
                                     currentUser: currentUser,
                                     isFavorite: viewModel.isFavorite(restaurant.id),
                                     appEnvironment: appEnvironment,
+                                    heroNamespace: heroNamespace,
                                     onFavoriteChanged: { id, isFavorite in
                                         viewModel.applyExternalFavoriteChange(restaurantId: id, isFavorite: isFavorite)
                                     }
                                 )
+                                .navigationTransition(.zoom(sourceID: restaurant.id, in: heroNamespace))
                             } label: {
                                 RestaurantCardView(
                                     restaurant: restaurant,
@@ -165,6 +194,7 @@ struct HomeView: View {
                                         Task { await viewModel.toggleFavorite(restaurant.id) }
                                     }
                                 )
+                                .matchedTransitionSource(id: restaurant.id, in: heroNamespace)
                             }
                             .buttonStyle(.plain)
                         }
@@ -173,6 +203,22 @@ struct HomeView: View {
                     .padding(.bottom, 24)
                 }
             }
+            .animation(.default, value: viewModel.filteredRestaurants.map(\.id))
+            .animation(.default, value: viewModel.selectedCategory)
+        }
+    }
+
+    /// Phase 10: a handful of shimmering RestaurantCardSkeleton rows in
+    /// the exact layout real cards will appear in, replacing the old
+    /// centered ProgressView.
+    private var skeletonList: some View {
+        ScrollView {
+            LazyVStack(spacing: 20) {
+                ForEach(0..<4, id: \.self) { _ in
+                    RestaurantCardSkeleton()
+                }
+            }
+            .padding(.horizontal)
         }
     }
 
@@ -194,7 +240,10 @@ struct HomeView: View {
     }
 
     private func categoryChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
             Text(title)
                 .font(.subheadline.bold())
                 .padding(.horizontal, 14)
@@ -204,33 +253,6 @@ struct HomeView: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "fork.knife")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text(viewModel.searchText.isEmpty ? "No restaurants yet" : "No matches for \"\(viewModel.searchText)\"")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 60)
-    }
-
-    private func errorState(message: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
-                .foregroundStyle(.orange)
-            Text(message)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-            Button("Try Again") {
-                Task { await viewModel.loadInitial() }
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }

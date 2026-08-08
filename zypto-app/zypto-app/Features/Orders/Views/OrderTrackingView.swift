@@ -10,6 +10,17 @@
 //
 //  Location in project: Features/Orders/Views/OrderTrackingView.swift
 //
+//  UPDATED IN PHASE 10:
+//   - The timeline now animates (spring) when `statusIndex` advances —
+//     the dot fill, connecting line, and checkmark all transition
+//     together instead of jumping straight to the new state — and gives
+//     a medium haptic the moment a live update lands, so the person
+//     feels the change even if they're not looking at the screen.
+//   - Each timeline row is now one combined VoiceOver element ("Out for
+//     Delivery, current status" / "Preparing, completed" /
+//     "Delivered, not yet reached") instead of two unlabeled stops (a
+//     decorative circle + a text line).
+//
 
 import SwiftUI
 
@@ -27,6 +38,7 @@ struct OrderTrackingView: View {
 
                 if viewModel.isCancelled {
                     cancelledBanner
+                        .transition(.opacity)
                 } else {
                     statusTimeline
                 }
@@ -39,6 +51,11 @@ struct OrderTrackingView: View {
         .navigationTitle("Order Status")
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.listen() }
+        .onChange(of: viewModel.statusIndex) { _, _ in
+            Haptics.impact()
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.statusIndex)
+        .animation(.default, value: viewModel.isCancelled)
     }
 
     private var header: some View {
@@ -62,6 +79,7 @@ struct OrderTrackingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.red.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     private var statusTimeline: some View {
@@ -86,6 +104,7 @@ struct OrderTrackingView: View {
                         Image(systemName: "checkmark")
                             .font(.caption2.bold())
                             .foregroundStyle(.white)
+                            .transition(.scale.combined(with: .opacity))
                     }
                 }
                 if !isLast {
@@ -111,6 +130,9 @@ struct OrderTrackingView: View {
             Spacer()
         }
         .padding(.bottom, isLast ? 0 : 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(OrderStatusDisplay.label(for: status))
+        .accessibilityValue(isCurrent ? "Current status" : (isComplete ? "Completed" : "Not yet reached"))
     }
 
     private var itemsSection: some View {

@@ -10,6 +10,15 @@
 //
 //  Location in project: Features/Shared/Views/StarRatingView.swift
 //
+//  UPDATED IN PHASE 10: both pieces were previously a row of decorative
+//  SF Symbol images with no VoiceOver label of their own — a screen
+//  reader would either skip them or read "star, star, star, image,
+//  star" with no indication of the actual rating or which star is
+//  selected. StarRatingView now collapses into one accessible element
+//  reporting the rating as a sentence; StarRatingPicker exposes each
+//  star as a properly labeled, selectable button so a rating can be
+//  set with VoiceOver as well as by sight.
+//
 
 import SwiftUI
 
@@ -28,6 +37,10 @@ struct StarRatingView: View {
                     .font(font)
             }
         }
+        // One combined announcement instead of VoiceOver stepping
+        // through five separate star icons with no context.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(String(format: "%.1f", rating)) out of \(maxRating) stars")
     }
 
     private func iconName(for position: Int) -> String {
@@ -48,6 +61,7 @@ struct StarRatingPicker: View {
         HStack(spacing: 8) {
             ForEach(1...maxRating, id: \.self) { star in
                 Button {
+                    Haptics.tap()
                     rating = star
                 } label: {
                     Image(systemName: star <= rating ? "star.fill" : "star")
@@ -55,8 +69,13 @@ struct StarRatingPicker: View {
                         .foregroundStyle(.orange)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(star) star\(star == 1 ? "" : "s")")
+                .accessibilityAddTraits(star == rating ? [.isSelected] : [])
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Rating")
+        .accessibilityValue("\(rating) out of \(maxRating) stars")
     }
 }
 

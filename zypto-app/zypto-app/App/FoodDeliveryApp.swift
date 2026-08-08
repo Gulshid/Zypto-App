@@ -22,6 +22,12 @@
 //  (Features/Shared/Views/ToastView.swift) above the whole app so a
 //  toast can appear regardless of which screen is on top.
 //
+//  UPDATED IN PHASE 10: RootView now also (1) starts
+//  AppEnvironment.networkMonitor once, on first appearance, and (2)
+//  pins an offline banner above the whole app whenever connectivity
+//  drops (Features/Shared/Views/EmptyStateView.swift), the same
+//  "applied once at the root" treatment as the toast overlay above.
+//
 
 import SwiftUI
 import FirebaseCore
@@ -86,6 +92,14 @@ struct FoodDeliveryApp: App {
             RootView()
                 .environmentObject(appEnvironment)
                 .environmentObject(authViewModel)
+                // Respect the system's preferred appearance (Light/Dark/
+                // Auto) rather than forcing one — every color used across
+                // the app is already a semantic/system color (.primary,
+                // .secondary, Color(.secondarySystemBackground), etc.)
+                // rather than a hardcoded white/black, so both appearances
+                // fall out of that "for free" without a dedicated theme
+                // file. Intentionally NOT calling .preferredColorScheme(_:)
+                // here — that would override the person's iOS setting.
         }
     }
 }
@@ -124,6 +138,11 @@ struct RootView: View {
             await appEnvironment.notificationService.requestAuthorization()
             await appEnvironment.notificationService.clearBadge()
         }
+        // New in Phase 10. Runs once, ever — start() itself is
+        // idempotent (see NetworkMonitor), but there's no need to even
+        // call it more than once from here.
+        .onAppear { appEnvironment.networkMonitor.start() }
+        .offlineBanner(isOffline: !appEnvironment.networkMonitor.isConnected)
         .toastOverlay(appEnvironment.toastCenter)
     }
 

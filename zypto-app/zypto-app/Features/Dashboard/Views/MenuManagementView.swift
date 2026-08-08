@@ -9,6 +9,14 @@
 //
 //  Location in project: Features/Dashboard/Views/MenuManagementView.swift
 //
+//  UPDATED IN PHASE 10: the loading state now shows a handful of
+//  shimmering skeleton rows (matching this screen's own 48x48-thumbnail
+//  row layout, via the local MenuManagementRowSkeleton below — the
+//  shared MenuItemRowSkeleton in Features/Shared/Views/SkeletonView.swift
+//  is sized for the customer-facing 72x72 row instead) rather than a
+//  single centered ProgressView, and the empty state now uses the
+//  shared EmptyStateView.
+//
 
 import SwiftUI
 
@@ -40,6 +48,7 @@ struct MenuManagementView: View {
                         } label: {
                             Image(systemName: "plus")
                         }
+                        .accessibilityLabel("Add menu item")
                     }
                 }
                 .task { await viewModel.loadMenu() }
@@ -60,10 +69,17 @@ struct MenuManagementView: View {
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.menuItems.isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                ForEach(0..<6, id: \.self) { _ in MenuManagementRowSkeleton() }
+            }
+            .listStyle(.insetGrouped)
         } else if viewModel.menuItems.isEmpty {
-            emptyState
+            EmptyStateView(
+                systemImage: "fork.knife.circle",
+                title: "No menu items yet",
+                actionTitle: "Add Your First Item",
+                action: { isPresentingNewItem = true }
+            )
         } else {
             List {
                 ForEach(viewModel.menuSections, id: \.category) { section in
@@ -72,12 +88,16 @@ struct MenuManagementView: View {
                             MenuManagementRowView(
                                 item: item,
                                 cloudinaryService: appEnvironment.cloudinaryService,
-                                onToggleAvailability: { Task { await viewModel.toggleAvailability(item) } }
+                                onToggleAvailability: {
+                                    Haptics.tap()
+                                    Task { await viewModel.toggleAvailability(item) }
+                                }
                             )
                             .contentShape(Rectangle())
                             .onTapGesture { editingItem = item }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
+                                    Haptics.warning()
                                     Task { await viewModel.delete(item) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
@@ -89,23 +109,6 @@ struct MenuManagementView: View {
             }
             .listStyle(.insetGrouped)
         }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "fork.knife.circle")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("No menu items yet")
-                .foregroundStyle(.secondary)
-            Button {
-                isPresentingNewItem = true
-            } label: {
-                Text("Add Your First Item")
-            }
-            .padding(.top, 4)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -134,9 +137,34 @@ private struct MenuManagementRowView: View {
 
             Spacer()
 
-            Toggle("", isOn: Binding(get: { item.isAvailable }, set: { _ in onToggleAvailability() }))
-                .labelsHidden()
+            Toggle(
+                "\(item.name) available",
+                isOn: Binding(get: { item.isAvailable }, set: { _ in onToggleAvailability() })
+            )
+            .labelsHidden()
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// New in Phase 10. Mirrors MenuManagementRowView's exact layout (48x48
+/// thumbnail + two text lines + trailing toggle) so the loading state
+/// doesn't jump around once the real rows arrive.
+private struct MenuManagementRowSkeleton: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            SkeletonBox(cornerRadius: 8)
+                .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 6) {
+                SkeletonBox().frame(width: 120, height: 14)
+                SkeletonBox().frame(width: 50, height: 12)
+            }
+            Spacer()
+            SkeletonBox(cornerRadius: 10)
+                .frame(width: 40, height: 22)
+        }
+        .padding(.vertical, 4)
+        .accessibilityHidden(true)
     }
 }

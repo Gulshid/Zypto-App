@@ -26,6 +26,12 @@
 //  UPDATED IN PHASE 9: wired up reviewRepository so RestaurantDetailView
 //  can construct a ReviewsViewModel (ratings & reviews feature).
 //
+//  UPDATED IN PHASE 10: added networkMonitor (Core/Utils/NetworkMonitor.swift),
+//  a shared connectivity flag driving the offline banner in RootView
+//  (see App/FoodDeliveryApp.swift and Features/Shared/Views/EmptyStateView.swift).
+//  Same "one instance, shared app-wide" treatment as toastCenter above,
+//  since connectivity is a property of the whole app, not any one screen.
+//
 
 import Foundation
 
@@ -53,6 +59,11 @@ final class AppEnvironment: ObservableObject {
     /// at the root (see RootView in App/FoodDeliveryApp.swift).
     let toastCenter: ToastCenter
 
+    /// New in Phase 10. Publishes device connectivity so the UI can show
+    /// an offline banner instead of silently serving Firestore's cached
+    /// data with no explanation. See Core/Utils/NetworkMonitor.swift.
+    let networkMonitor: NetworkMonitor
+
     init(
         authService: AuthServiceProtocol = AuthServiceFirebase(),
         firestoreService: FirestoreServiceProtocol = FirestoreServiceLive(),
@@ -71,6 +82,7 @@ final class AppEnvironment: ObservableObject {
         self.orderRepository = OrderRepository(firestoreService: firestoreService)
         self.reviewRepository = ReviewRepository(firestoreService: firestoreService)
         self.toastCenter = ToastCenter()
+        self.networkMonitor = NetworkMonitor()
     }
 }
 
