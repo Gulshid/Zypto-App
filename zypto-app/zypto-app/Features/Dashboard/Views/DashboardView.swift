@@ -77,11 +77,11 @@ struct DashboardView: View {
             MenuManagementView(restaurantId: restaurant.id, appEnvironment: appEnvironment)
                 .tabItem { Label("Menu", systemImage: "fork.knife") }
 
-            IncomingOrdersView(restaurantId: restaurant.id, orderRepository: appEnvironment.orderRepository)
+            IncomingOrdersView(restaurantId: restaurant.id, restaurantOwnerId: restaurant.ownerId, orderRepository: appEnvironment.orderRepository)
                 .tabItem { Label("Orders", systemImage: "bag") }
                 .badge(viewModel.activeOrderCount)
 
-            AnalyticsView(restaurantId: restaurant.id, orderRepository: appEnvironment.orderRepository)
+            AnalyticsView(restaurantId: restaurant.id, restaurantOwnerId: restaurant.ownerId, orderRepository: appEnvironment.orderRepository)
                 .tabItem { Label("Analytics", systemImage: "chart.bar") }
 
             profileTab(for: restaurant)

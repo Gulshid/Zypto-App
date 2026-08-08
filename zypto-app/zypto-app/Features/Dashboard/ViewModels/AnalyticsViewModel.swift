@@ -21,10 +21,12 @@ final class AnalyticsViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let restaurantId: String
+    private let restaurantOwnerId: String
     private let orderRepository: OrderRepositoryProtocol
 
-    init(restaurantId: String, orderRepository: OrderRepositoryProtocol) {
+    init(restaurantId: String, restaurantOwnerId: String, orderRepository: OrderRepositoryProtocol) {
         self.restaurantId = restaurantId
+        self.restaurantOwnerId = restaurantOwnerId
         self.orderRepository = orderRepository
     }
 
@@ -65,7 +67,7 @@ final class AnalyticsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            orders = try await orderRepository.fetchOrders(restaurantId: restaurantId)
+            orders = try await orderRepository.fetchOrders(restaurantId: restaurantId, restaurantOwnerId: restaurantOwnerId)
         } catch {
             errorMessage = error.localizedDescription
         }

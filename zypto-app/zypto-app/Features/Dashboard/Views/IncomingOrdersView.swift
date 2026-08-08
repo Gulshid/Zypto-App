@@ -25,9 +25,10 @@ import SwiftUI
 struct IncomingOrdersView: View {
     @StateObject private var viewModel: IncomingOrdersViewModel
 
-    init(restaurantId: String, orderRepository: OrderRepositoryProtocol) {
+    init(restaurantId: String, restaurantOwnerId: String, orderRepository: OrderRepositoryProtocol) {
         _viewModel = StateObject(wrappedValue: IncomingOrdersViewModel(
             restaurantId: restaurantId,
+            restaurantOwnerId: restaurantOwnerId,
             orderRepository: orderRepository
         ))
     }

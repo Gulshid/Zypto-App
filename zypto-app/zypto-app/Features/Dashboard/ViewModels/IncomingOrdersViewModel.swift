@@ -27,10 +27,12 @@ final class IncomingOrdersViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let restaurantId: String
+    private let restaurantOwnerId: String
     private let orderRepository: OrderRepositoryProtocol
 
-    init(restaurantId: String, orderRepository: OrderRepositoryProtocol) {
+    init(restaurantId: String, restaurantOwnerId: String, orderRepository: OrderRepositoryProtocol) {
         self.restaurantId = restaurantId
+        self.restaurantOwnerId = restaurantOwnerId
         self.orderRepository = orderRepository
     }
 
@@ -50,7 +52,7 @@ final class IncomingOrdersViewModel: ObservableObject {
     /// See OrderHistoryViewModel.listen() — same pattern, scoped to
     /// restaurantId instead of customerId.
     func listen() async {
-        for await updatedOrders in orderRepository.listenToOrders(restaurantId: restaurantId) {
+        for await updatedOrders in orderRepository.listenToOrders(restaurantId: restaurantId, restaurantOwnerId: restaurantOwnerId) {
             orders = updatedOrders
             isLoading = false
         }

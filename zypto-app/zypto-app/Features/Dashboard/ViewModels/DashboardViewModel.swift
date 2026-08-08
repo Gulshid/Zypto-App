@@ -105,7 +105,7 @@ final class DashboardViewModel: ObservableObject {
         knownOrderIds = []
         hasReceivedFirstOrderSnapshot = false
 
-        for await orders in orderRepository.listenToOrders(restaurantId: restaurantId) {
+        for await orders in orderRepository.listenToOrders(restaurantId: restaurantId, restaurantOwnerId: ownerId) {
             activeOrderCount = orders.filter {
                 $0.status != Constants.OrderStatus.delivered && $0.status != Constants.OrderStatus.cancelled
             }.count

@@ -14,9 +14,10 @@ import SwiftUI
 struct AnalyticsView: View {
     @StateObject private var viewModel: AnalyticsViewModel
 
-    init(restaurantId: String, orderRepository: OrderRepositoryProtocol) {
+    init(restaurantId: String, restaurantOwnerId: String, orderRepository: OrderRepositoryProtocol) {
         _viewModel = StateObject(wrappedValue: AnalyticsViewModel(
             restaurantId: restaurantId,
+            restaurantOwnerId: restaurantOwnerId,
             orderRepository: orderRepository
         ))
     }

@@ -71,12 +71,20 @@ protocol OrderRepositoryProtocol {
     /// One-shot fetch of every order placed at a restaurant, most recent
     /// first. Used by the dashboard's Analytics screen, and to populate
     /// Incoming Orders before its live listener attaches.
-    func fetchOrders(restaurantId: String) async throws -> [Order]
+    /// restaurantOwnerId (the signed-in owner's own UID) is required as
+    /// a query filter, not just restaurantId — firestore.rules checks
+    /// resource.data.restaurantOwnerId for these reads, and Firestore
+    /// denies a *list* query outright unless the query itself filters on
+    /// exactly the field the rule depends on (see firestore.rules'
+    /// Phase 10 comment).
+    func fetchOrders(restaurantId: String, restaurantOwnerId: String) async throws -> [Order]
 
     /// Live updates for a restaurant's full order list — the dashboard's
     /// Incoming Orders screen, so a newly-placed order shows up the
     /// instant a customer checks out, no manual refresh required.
-    func listenToOrders(restaurantId: String) -> AsyncStream<[Order]>
+    /// See fetchOrders(restaurantId:restaurantOwnerId:) on why both
+    /// filters are required.
+    func listenToOrders(restaurantId: String, restaurantOwnerId: String) -> AsyncStream<[Order]>
 
     /// Advances (or cancels) an order's status from the dashboard.
     /// A cheap single-field update, matching the pattern used by
@@ -123,18 +131,20 @@ final class OrderRepository: OrderRepositoryProtocol {
         }
     }
 
-    func fetchOrders(restaurantId: String) async throws -> [Order] {
+    func fetchOrders(restaurantId: String, restaurantOwnerId: String) async throws -> [Order] {
         try await firestoreService.getDocuments(Order.self, collection: Constants.Collections.orders) { query in
             query
                 .whereField("restaurantId", isEqualTo: restaurantId)
+                .whereField("restaurantOwnerId", isEqualTo: restaurantOwnerId)
                 .order(by: "createdAt", descending: true)
         }
     }
 
-    func listenToOrders(restaurantId: String) -> AsyncStream<[Order]> {
+    func listenToOrders(restaurantId: String, restaurantOwnerId: String) -> AsyncStream<[Order]> {
         firestoreService.listenToDocuments(Order.self, collection: Constants.Collections.orders) { query in
             query
                 .whereField("restaurantId", isEqualTo: restaurantId)
+                .whereField("restaurantOwnerId", isEqualTo: restaurantOwnerId)
                 .order(by: "createdAt", descending: true)
         }
     }
